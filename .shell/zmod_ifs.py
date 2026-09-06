@@ -88,6 +88,9 @@ class zmod_ifs:
             self.color_limit = 4
         else:
             self.color_limit = max(color_limit, 1)
+            
+        self.next_cmd_delay = config.getfloat('next_cmd_delay', 0.2)
+        self.send_ff_terminator = config.getboolean('send_ff_terminator', False)
 
         temp_defaults = {
             "PLA": 220,
@@ -1227,8 +1230,9 @@ class zmod_ifs:
                         command = current_command
 
                     ser.write((command + "\r\n").encode())
-                    time.sleep(0.2)
-                    ser.write(b'\xFF')
+                    if self.send_ff_terminator:
+                        time.sleep(0.2)
+                        ser.write(b'\xFF')
 
                     response = self._ifs_serial_read(ser).decode('utf-8', errors='ignore').strip()
                     #self._respond_info(f"IN: {response}")
@@ -1282,7 +1286,8 @@ class zmod_ifs:
                             with self._command_lock:
                                 if command_id == self._command_id: # Если текущая команда последняя, то переходим в режим опроса
                                     self._command = "F13"
-                    time.sleep(HOST_REPORT_TIME)
+
+                    time.sleep(self.next_cmd_delay)
             except serial.SerialException as e:
                 logging.warning("IFS: Serial communication error: %s", e)
                 self._respond_info(f"IFS: sensor error: Serial communication error: {str(e)}")
